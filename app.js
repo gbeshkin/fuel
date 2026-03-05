@@ -6,10 +6,13 @@ const META_URL   = "./data/meta.json";
 const els = {
   city: document.getElementById("citySelect"),
   fuel: document.getElementById("fuelSelect"),
+  company: document.getElementById("companySelect"), // NEW (может быть null)
+  sort: document.getElementById("sortSelect"),       // NEW (может быть null)
   q: document.getElementById("q"),
   refresh: document.getElementById("refreshBtn"),
   meta: document.getElementById("meta"),
-  tbody: document.querySelector("#tbl tbody"),
+  tbody: document.querySelector("#tblStations tbody") // если в новом HTML таблица tblStations
+        || document.querySelector("#tbl tbody"),      // fallback на старый id
 };
 
 let map;
@@ -313,16 +316,22 @@ function render() {
   renderMap(filtered);
 }
 
-function bindUI() {
-  els.city.addEventListener("change", render);
-  els.fuel.addEventListener("change", render);
+function on(el, event, handler) {
+  if (el) el.addEventListener(event, handler);
+}
 
-  els.q.addEventListener("input", () => {
+function bindUI() {
+  on(els.city, "change", render);
+  on(els.fuel, "change", render);
+  on(els.company, "change", render);   // если добавил companySelect
+  on(els.sort, "change", render);      // если добавил sortSelect
+
+  on(els.q, "input", () => {
     window.clearTimeout(window.__t);
     window.__t = window.setTimeout(render, 120);
   });
 
-  els.refresh.addEventListener("click", () => fetchData().catch(showErr));
+  on(els.refresh, "click", () => fetchData().catch(showErr));
 }
 
 function showErr(e) {
