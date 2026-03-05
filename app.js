@@ -1,29 +1,44 @@
-
 const LATEST_URL = "./data/latest.json";
-const PREV_URL   = "./data/prev.json";
-const META_URL   = "./data/meta.json";
+const PREV_URL = "./data/prev.json";
+const META_URL = "./data/meta.json";
 
 const els = {
   city: document.getElementById("citySelect"),
-  fuel: document.getElementById("fuelSelect"),
-  company: document.getElementById("companySelect"), // NEW (может быть null)
-  sort: document.getElementById("sortSelect"),       // NEW (может быть null)
+  company: document.getElementById("companySelect"),
+  sort: document.getElementById("sortSelect"),
   q: document.getElementById("q"),
   refresh: document.getElementById("refreshBtn"),
   meta: document.getElementById("meta"),
-  tbody: document.querySelector("#tblStations tbody") // если в новом HTML таблица tblStations
-        || document.querySelector("#tbl tbody"),      // fallback на старый id
+
+  badgeUpdated: document.getElementById("badgeUpdated"),
+  badgeCity: document.getElementById("badgeCity"),
+
+  tbody:
+    document.querySelector("#tblStations tbody") ||
+    document.querySelector("#tbl tbody"),
 };
 
 let map;
 let markersLayer;
+let markerByStationId = new Map();
 
-let allRows = [];      
-let stationIndex = [];
-let prevPriceByKey = new Map(); // key -> price
+let rawRowsLatest = [];       
+let stationsLatest = [];      
+let prevPriceByKey = new Map(); 
+
+let stationRows = []; // [{stationId, stationName, address, city, companyId, lat, lon, prices:{p95,p98,diesel,lpg,cng}, deltas:{...}, stationDeltaObj:{icon,text,cls,abs}}]
+
+const FUEL_KEYS = ["p95", "p98", "diesel", "lpg", "cng"];
+const FUEL_LABEL = {
+  p95: "95",
+  p98: "98",
+  diesel: "Diesel",
+  lpg: "LPG",
+  cng: "CNG",
+};
 
 function safeStr(v) {
-  return (v === null || v === undefined) ? "" : String(v);
+  return v === null || v === undefined ? "" : String(v);
 }
 
 function escapeHtml(s) {
@@ -37,14 +52,48 @@ function escapeHtml(s) {
 
 function toCityFromAddress(address) {
   const s = safeStr(address);
-  const parts = s.split(",").map(x => x.trim()).filter(Boolean);
+  const parts = s.split(",").map((x) => x.trim()).filter(Boolean);
   if (parts.length >= 2) return parts[parts.length - 1];
   return "";
 }
 
 function fmtPrice(n) {
-  if (n === null || n === undefined || Number.isNaN(Number(n))) return "";
+  if (n === null || n === undefined || Number.isNaN(Number(n))) return "—";
   return Number(n).toFixed(3);
+}
+
+function priceKey(stationId, fuelTypeId) {
+  return `${stationId}::${fuelTypeId}`;
+}
+
+function normalizeFuelKey(fuelName) {
+  const n = safeStr(fuelName).toLowerCase();
+
+  if (n.includes("cng")) return "cng";
+  if (n.includes("lpg")) return "lpg";
+  if (n.includes("diesel") || n.includes("diisel")) return "diesel";
+
+  
+  if (/(^|\D)98(\D|$)/.test(n)) return "p98";
+  if (/(^|\D)95(\D|$)/.test(n)) return "p95";
+
+  return null;
+}
+
+function compareTrendByRow(stationId, fuelTypeId, currPrice) {
+  const prev = prevPriceByKey.get(priceKey(stationId, fuelTypeId));
+  const curr = currPrice;
+
+  if (typeof curr !== "number" || typeof prev !== "number") {
+    return { icon: "—", text: "нет данных", cls: "deltaNone", abs: null, diff: null };
+  }
+
+  const diff = curr - prev;
+  const eps = 0.0005;
+
+  if (diff > eps) return { icon: "↑", text: `+${diff.toFixed(3)}`, cls: "deltaUp", abs: Math.abs(diff), diff };
+  if (diff < -eps) return { icon: "↓", text: `${diff.toFixed(3)}`, cls: "deltaDown", abs: Math.abs(diff), diff };
+  return { icon: "→", text: "0.000", cls: "deltaFlat", abs: 0, diff: 0 };
 }
 
 function ensureMap() {
@@ -59,70 +108,6 @@ function ensureMap() {
   markersLayer = L.layerGroup().addTo(map);
 }
 
-function priceKey(row) {
-  return `${row.stationId}::${row.fuelTypeId}`;
-}
-
-function compareTrend(row) {
-  const prev = prevPriceByKey.get(priceKey(row));
-  const curr = row.price;
-
-  if (typeof curr !== "number" || typeof prev !== "number") {
-    return { icon: "—", text: "нет данных", cls: "trendNone" };
-  }
-
-  const diff = curr - prev;
-  const eps = 0.0005; // чтобы 1.5690000002 не считалось ростом
-
-  if (diff > eps)  return { icon: "↑", text: `+${diff.toFixed(3)}`, cls: "trendUp" };
-  if (diff < -eps) return { icon: "↓", text: `${diff.toFixed(3)}`, cls: "trendDown" };
-  return { icon: "→", text: "0.000", cls: "trendFlat" };
-}
-
-function getFilterState() {
-  return {
-    city: els.city.value,
-    fuel: els.fuel.value,
-    q: els.q.value.trim().toLowerCase(),
-  };
-}
-
-function applyFilters(rows) {
-  const { city, fuel, q } = getFilterState();
-
-  return rows.filter(r => {
-    if (city !== "__ALL__" && r.city !== city) return false;
-    if (fuel !== "__ALL__" && r.fuelName !== fuel) return false;
-
-    if (q) {
-      const hay = `${safeStr(r.stationName)} ${safeStr(r.address)}`.toLowerCase();
-      if (!hay.includes(q)) return false;
-    }
-    return true;
-  });
-}
-
-function buildFilters(rows) {
-  const cities = new Set();
-  const fuels = new Set();
-
-  for (const r of rows) {
-    if (r.city) cities.add(r.city);
-    if (r.fuelName) fuels.add(r.fuelName);
-  }
-
-  const cityList = Array.from(cities).sort((a, b) => a.localeCompare(b));
-  const fuelList = Array.from(fuels).sort((a, b) => a.localeCompare(b));
-
-  els.city.innerHTML =
-    `<option value="__ALL__">Все</option>` +
-    cityList.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join("");
-
-  els.fuel.innerHTML =
-    `<option value="__ALL__">Все</option>` +
-    fuelList.map(f => `<option value="${escapeHtml(f)}">${escapeHtml(f)}</option>`).join("");
-}
-
 function unpackFuelest(json) {
   const priceInfo = json?.data?.priceInfo ?? [];
   const rows = [];
@@ -133,13 +118,14 @@ function unpackFuelest(json) {
     const stationInfos = companyBlock.stationInfos ?? [];
 
     for (const st of stationInfos) {
-      const city = toCityFromAddress(st.address);
+      const address = st.address;
+      const city = toCityFromAddress(address);
 
       if (!stationsById.has(st.stationId)) {
         stationsById.set(st.stationId, {
           stationId: st.stationId,
           displayName: st.displayName,
-          address: st.address,
+          address,
           city,
           latitude: st.latitude,
           longitude: st.longitude,
@@ -150,13 +136,13 @@ function unpackFuelest(json) {
 
       const fuelInfos = st.fuelInfos ?? [];
       for (const f of fuelInfos) {
-        const address = f.address ?? st.address;
+        const rowAddress = f.address ?? address;
         rows.push({
           companyId: f.companyId ?? companyId,
           stationId: f.stationId ?? st.stationId,
           stationName: f.displayName ?? st.displayName,
-          address,
-          city: toCityFromAddress(address),
+          address: rowAddress,
+          city: toCityFromAddress(rowAddress),
           latitude: f.latitude ?? st.latitude,
           longitude: f.longitude ?? st.longitude,
           fuelName: f.name,
@@ -182,127 +168,270 @@ async function fetchJsonOrNull(url) {
   }
 }
 
-async function fetchData() {
-  els.meta.textContent = "Загружаю данные…";
-
-  const latestJson = await fetchJsonOrNull(LATEST_URL);
-  if (!latestJson) {
-    throw new Error("Не удалось загрузить data/latest.json. Запусти GitHub Actions хотя бы один раз.");
-  }
-
-  const prevJson = await fetchJsonOrNull(PREV_URL);
-  const metaJson = await fetchJsonOrNull(META_URL);
-
-  // latest
-  const latest = unpackFuelest(latestJson);
-  allRows = latest.rows;
-  stationIndex = latest.stations;
-
-  // prev map
-  prevPriceByKey = new Map();
-  if (prevJson) {
-    const prev = unpackFuelest(prevJson).rows;
-    for (const r of prev) {
-      if (typeof r.price === "number") {
-        prevPriceByKey.set(priceKey(r), r.price);
-      }
+function buildPrevPriceMap(prevRows) {
+  const m = new Map();
+  for (const r of prevRows) {
+    if (typeof r.price === "number") {
+      m.set(priceKey(r.stationId, r.fuelTypeId), r.price);
     }
   }
-
-  buildFilters(allRows);
-
-  const updatedAt = metaJson?.updated_at_utc
-    ? new Date(metaJson.updated_at_utc).toLocaleString("ru-RU")
-    : new Date().toLocaleString("ru-RU");
-
-  const hasPrev = prevPriceByKey.size > 0;
-  els.meta.textContent =
-    `Записей: ${allRows.length}. Станций: ${stationIndex.length}. ` +
-    `Последнее обновление (UTC): ${updatedAt}. `;
-  
-
-  render();
+  return m;
 }
 
-function renderTable(filteredRows) {
-  const html = filteredRows
-    .slice()
-    .sort((a, b) => {
-      const c = safeStr(a.city).localeCompare(safeStr(b.city));
-      if (c !== 0) return c;
-      const s = safeStr(a.stationName).localeCompare(safeStr(b.stationName));
-      if (s !== 0) return s;
-      return safeStr(a.fuelName).localeCompare(safeStr(b.fuelName));
-    })
-    .map(r => {
-      const dt = r.dateTime ? new Date(r.dateTime).toLocaleString("ru-RU") : "";
-      const t = compareTrend(r);
+function buildStationRowsFromLatest(latestRows) {
+  const byStation = new Map();
 
-      return `<tr>
-        <td class="small">${escapeHtml(r.companyId)}</td>
-        <td>${escapeHtml(r.stationName)}</td>
-        <td>${escapeHtml(r.address)}</td>
-        <td>${escapeHtml(r.city)}</td>
-        <td>${escapeHtml(r.fuelName)}</td>
-        <td><b>${escapeHtml(fmtPrice(r.price))}</b> ${escapeHtml(r.currency || "")}</td>
-        <td class="small">${escapeHtml(dt)}</td>
-        <td class="${t.cls}">
-          ${escapeHtml(t.icon)} <span class="small trendText">${escapeHtml(t.text)}</span>
+  for (const r of latestRows) {
+    const sid = r.stationId;
+    const key = normalizeFuelKey(r.fuelName);
+    if (!key) continue;
+
+    const obj = byStation.get(sid) ?? {
+      stationId: sid,
+      stationName: r.stationName,
+      address: r.address,
+      city: r.city,
+      companyId: r.companyId,
+      latitude: r.latitude,
+      longitude: r.longitude,
+      prices: { p95: null, p98: null, diesel: null, lpg: null, cng: null },
+      deltas: { p95: null, p98: null, diesel: null, lpg: null, cng: null },
+      fuelTypeIdByKey: { p95: null, p98: null, diesel: null, lpg: null, cng: null },
+      currency: r.currency || "",
+      dateTime: r.dateTime || "",
+    };
+
+    if (typeof r.price === "number") {
+      const curr = obj.prices[key];
+      if (curr === null || curr === undefined || (typeof curr === "number" && r.price < curr)) {
+        obj.prices[key] = r.price;
+        obj.fuelTypeIdByKey[key] = r.fuelTypeId;
+      }
+    }
+
+    if (!obj.stationName) obj.stationName = r.stationName;
+    if (!obj.address) obj.address = r.address;
+    if (!obj.city) obj.city = r.city;
+
+    byStation.set(sid, obj);
+  }
+
+  const out = [];
+  for (const st of byStation.values()) {
+    for (const fk of FUEL_KEYS) {
+      const ftid = st.fuelTypeIdByKey[fk];
+      const price = st.prices[fk];
+      if (ftid && typeof price === "number") {
+        st.deltas[fk] = compareTrendByRow(st.stationId, ftid, price);
+      } else {
+        st.deltas[fk] = { icon: "—", text: "нет данных", cls: "deltaNone", abs: null, diff: null };
+      }
+    }
+
+    let best = { icon: "—", text: "нет данных", cls: "deltaNone", abs: null, diff: null };
+    for (const fk of FUEL_KEYS) {
+      const d = st.deltas[fk];
+      if (typeof d?.abs === "number") {
+        if (best.abs === null || d.abs > best.abs) best = d;
+      }
+    }
+
+    st.stationDeltaObj = best;
+
+    out.push(st);
+  }
+
+  return out;
+}
+
+function uniqSorted(arr) {
+  return Array.from(new Set(arr.filter(Boolean))).sort((a, b) => a.localeCompare(b));
+}
+
+function buildFilters() {
+  const cities = uniqSorted(stationRows.map((s) => s.city));
+  if (els.city) {
+    const current = els.city.value || "__ALL__";
+    els.city.innerHTML =
+      `<option value="__ALL__">Все</option>` +
+      cities.map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join("");
+    els.city.value = cities.includes(current) ? current : "__ALL__";
+  }
+
+  const companies = uniqSorted(stationRows.map((s) => safeStr(s.companyId)));
+  if (els.company) {
+    const current = els.company.value || "__ALL__";
+    els.company.innerHTML =
+      `<option value="__ALL__">Все</option>` +
+      companies.map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join("");
+    els.company.value = companies.includes(current) ? current : "__ALL__";
+  }
+}
+
+function getFilterState() {
+  return {
+    city: els.city ? els.city.value : "__ALL__",
+    company: els.company ? els.company.value : "__ALL__",
+    sort: els.sort ? els.sort.value : "station",
+    q: els.q ? els.q.value.trim().toLowerCase() : "",
+  };
+}
+
+function passesFilters(st) {
+  const { city, company, q } = getFilterState();
+
+  if (city !== "__ALL__" && st.city !== city) return false;
+  if (company !== "__ALL__" && safeStr(st.companyId) !== company) return false;
+
+  if (q) {
+    const hay = `${safeStr(st.stationName)} ${safeStr(st.address)}`.toLowerCase();
+    if (!hay.includes(q)) return false;
+  }
+
+  return true;
+}
+
+function sortStations(list) {
+  const { sort } = getFilterState();
+
+  const getPrice = (s, key) => {
+    const v = s.prices[key];
+    return typeof v === "number" ? v : Number.POSITIVE_INFINITY;
+  };
+
+  const getDeltaAbs = (s) => {
+    const v = s.stationDeltaObj?.abs;
+    return typeof v === "number" ? v : -1;
+  };
+
+  const sorted = list.slice();
+
+  if (sort === "p95") {
+    sorted.sort((a, b) => getPrice(a, "p95") - getPrice(b, "p95"));
+  } else if (sort === "p98") {
+    sorted.sort((a, b) => getPrice(a, "p98") - getPrice(b, "p98"));
+  } else if (sort === "diesel") {
+    sorted.sort((a, b) => getPrice(a, "diesel") - getPrice(b, "diesel"));
+  } else if (sort === "delta") {
+    sorted.sort((a, b) => getDeltaAbs(b) - getDeltaAbs(a));
+  } else {
+    // station
+    sorted.sort((a, b) => safeStr(a.stationName).localeCompare(safeStr(b.stationName)));
+  }
+
+  return sorted;
+}
+
+function renderBadges(metaUpdatedAt) {
+  if (els.badgeUpdated) {
+    els.badgeUpdated.textContent = metaUpdatedAt ? `Обновлено: ${metaUpdatedAt}` : "—";
+  }
+  if (els.badgeCity) {
+    const { city } = getFilterState();
+    els.badgeCity.textContent = city === "__ALL__" ? "Все города" : city;
+  }
+}
+
+function renderMetaLine(metaUpdatedAt) {
+  const count = stationRows.filter(passesFilters).length;
+  const hasPrev = prevPriceByKey.size > 0;
+
+  if (els.meta) {
+    els.meta.textContent =
+      `Станций (после фильтров): ${count}. ` +
+      (metaUpdatedAt ? `Последнее обновление (UTC): ${metaUpdatedAt}. ` : "") +
+      (hasPrev ? "Δ активно (сравнение с прошлым обновлением)." : "Δ появится после следующего обновления (когда появится prev.json).");
+  }
+}
+
+function renderTable() {
+  if (!els.tbody) return;
+
+  const filtered = stationRows.filter(passesFilters);
+  const sorted = sortStations(filtered);
+
+  const cellPrice = (s, key) => {
+    const price = s.prices[key];
+    const val = typeof price === "number" ? fmtPrice(price) : "—";
+    return `<div class="price">
+      <span class="priceVal">${escapeHtml(val)}</span>
+    </div>`;
+  };
+
+  const deltaCell = (s) => {
+    const d = s.stationDeltaObj || { icon: "—", text: "нет данных", cls: "deltaNone" };
+    return `<div class="delta ${escapeHtml(d.cls)}">
+      <span>${escapeHtml(d.icon)}</span>
+      <span class="deltaText">${escapeHtml(d.text)}</span>
+    </div>`;
+  };
+
+  const html = sorted
+    .map((s) => {
+      return `<tr data-station-id="${escapeHtml(s.stationId)}">
+        <td class="col-station">
+          <div style="display:flex;flex-direction:column;gap:3px;">
+            <div style="font-weight:800;">${escapeHtml(s.stationName)}</div>
+            <div class="small" style="opacity:.9;">${escapeHtml(s.address)}</div>
+          </div>
         </td>
+        <td class="col-city">${escapeHtml(s.city)}</td>
+        <td class="col-fuel">${cellPrice(s, "p95")}</td>
+        <td class="col-fuel">${cellPrice(s, "p98")}</td>
+        <td class="col-fuel">${cellPrice(s, "diesel")}</td>
+        <td class="col-fuel">${cellPrice(s, "lpg")}</td>
+        <td class="col-fuel">${cellPrice(s, "cng")}</td>
+        <td class="col-delta">${deltaCell(s)}</td>
       </tr>`;
     })
     .join("");
 
-  els.tbody.innerHTML = html || `<tr><td colspan="8" class="small">Нет данных под выбранные фильтры</td></tr>`;
+  els.tbody.innerHTML =
+    html ||
+    `<tr><td colspan="8" class="small" style="padding:14px;">Нет данных под выбранные фильтры</td></tr>`;
+
+  els.tbody.querySelectorAll("tr[data-station-id]").forEach((tr) => {
+    tr.addEventListener("click", () => {
+      const sid = tr.getAttribute("data-station-id");
+      focusStationOnMap(sid);
+    });
+  });
 }
 
-function renderMap(filteredRows) {
+function renderMap() {
   ensureMap();
   markersLayer.clearLayers();
+  markerByStationId = new Map();
 
-  const stationIds = new Set(filteredRows.map(r => r.stationId));
-
-  const byStation = new Map();
-  for (const r of filteredRows) {
-    const arr = byStation.get(r.stationId) ?? [];
-    arr.push(r);
-    byStation.set(r.stationId, arr);
-  }
+  const filtered = stationRows.filter(passesFilters);
 
   const bounds = [];
-
-  for (const st of stationIndex) {
-    if (!stationIds.has(st.stationId)) continue;
-    if (typeof st.latitude !== "number" || typeof st.longitude !== "number") continue;
-
-    const rows = (byStation.get(st.stationId) ?? [])
-      .slice()
-      .sort((a, b) => safeStr(a.fuelName).localeCompare(safeStr(b.fuelName)));
-
-    const lines = rows.map(r => {
-      const dt = r.dateTime ? new Date(r.dateTime).toLocaleString("ru-RU") : "";
-      const t = compareTrend(r);
-      return `<div>
-        <b>${escapeHtml(r.fuelName)}</b>:
-        ${escapeHtml(fmtPrice(r.price))} ${escapeHtml(r.currency || "")}
-        <span class="small">(${escapeHtml(dt)})</span>
-        <span class="small"> — <b>${escapeHtml(t.icon)}</b> ${escapeHtml(t.text)}</span>
-      </div>`;
-    }).join("");
+  for (const s of filtered) {
+    if (typeof s.latitude !== "number" || typeof s.longitude !== "number") continue;
 
     const popup = `
-      <div style="min-width:240px">
-        <div><b>${escapeHtml(st.displayName || "")}</b></div>
-        <div class="small">${escapeHtml(st.address || "")}</div>
-        <div class="small">Город: ${escapeHtml(st.city || "")}</div>
+      <div style="min-width:260px">
+        <div><b>${escapeHtml(s.stationName)}</b></div>
+        <div class="small">${escapeHtml(s.address)}</div>
+        <div class="small">Город: ${escapeHtml(s.city)}</div>
         <hr style="border:0;border-top:1px solid rgba(255,255,255,.18);margin:8px 0"/>
-        ${lines || "<div class='small'>Нет цен</div>"}
+
+        ${FUEL_KEYS.map((k) => {
+          const p = s.prices[k];
+          const val = typeof p === "number" ? fmtPrice(p) : "—";
+          const d = s.deltas[k] || { icon: "—", text: "нет данных" };
+          return `<div>
+            <b>${escapeHtml(FUEL_LABEL[k])}</b>: ${escapeHtml(val)}
+            <span class="small"> — <b>${escapeHtml(d.icon)}</b> ${escapeHtml(d.text)}</span>
+          </div>`;
+        }).join("")}
       </div>
     `;
 
-    const m = L.marker([st.latitude, st.longitude]).bindPopup(popup);
+    const m = L.marker([s.latitude, s.longitude]).bindPopup(popup);
     markersLayer.addLayer(m);
-    bounds.push([st.latitude, st.longitude]);
+    markerByStationId.set(s.stationId, m);
+    bounds.push([s.latitude, s.longitude]);
   }
 
   if (bounds.length) {
@@ -310,39 +439,116 @@ function renderMap(filteredRows) {
   }
 }
 
-function render() {
-  const filtered = applyFilters(allRows);
-  renderTable(filtered);
-  renderMap(filtered);
+function focusStationOnMap(stationId) {
+  if (!stationId) return;
+  ensureMap();
+
+  const m = markerByStationId.get(stationId);
+  if (m) {
+    const latlng = m.getLatLng();
+    map.setView(latlng, Math.max(map.getZoom(), 14), { animate: true });
+    m.openPopup();
+    return;
+  }
+
+  const s = stationRows.find((x) => x.stationId === stationId);
+  if (s && typeof s.latitude === "number" && typeof s.longitude === "number") {
+    map.setView([s.latitude, s.longitude], 14, { animate: true });
+  }
+}
+
+function renderAll(metaUpdatedAt) {
+  renderBadges(metaUpdatedAt);
+  renderMetaLine(metaUpdatedAt);
+  renderTable();
+  renderMap();
 }
 
 function on(el, event, handler) {
   if (el) el.addEventListener(event, handler);
 }
 
-function bindUI() {
-  on(els.city, "change", render);
-  on(els.fuel, "change", render);
-  on(els.company, "change", render);   // если добавил companySelect
-  on(els.sort, "change", render);      // если добавил sortSelect
+function bindUI(metaUpdatedAtRef) {
+  on(els.city, "change", () => {
+    renderBadges(metaUpdatedAtRef.value);
+    renderMetaLine(metaUpdatedAtRef.value);
+    renderTable();
+    renderMap();
+  });
+
+  on(els.company, "change", () => {
+    renderBadges(metaUpdatedAtRef.value);
+    renderMetaLine(metaUpdatedAtRef.value);
+    renderTable();
+    renderMap();
+  });
+
+  on(els.sort, "change", () => {
+    renderTable();
+  });
 
   on(els.q, "input", () => {
     window.clearTimeout(window.__t);
-    window.__t = window.setTimeout(render, 120);
+    window.__t = window.setTimeout(() => {
+      renderBadges(metaUpdatedAtRef.value);
+      renderMetaLine(metaUpdatedAtRef.value);
+      renderTable();
+      renderMap();
+    }, 120);
   });
 
-  on(els.refresh, "click", () => fetchData().catch(showErr));
+  on(els.refresh, "click", () => {
+    fetchData().catch(showErr);
+  });
 }
 
 function showErr(e) {
   console.error(e);
-  els.meta.textContent = `Ошибка: ${e?.message || e}`;
+  if (els.meta) {
+    els.meta.textContent = `Ошибка: ${e?.message || e}`;
+  }
+  if (els.badgeUpdated) els.badgeUpdated.textContent = "Ошибка";
+}
+
+async function fetchData() {
+  if (els.meta) els.meta.textContent = "Загружаю данные…";
+
+  const latestJson = await fetchJsonOrNull(LATEST_URL);
+  if (!latestJson) {
+    throw new Error("Не удалось загрузить data/latest.json. Проверь, что GitHub Actions создал файл и он доступен в Pages.");
+  }
+
+  const prevJson = await fetchJsonOrNull(PREV_URL);
+  const metaJson = await fetchJsonOrNull(META_URL);
+
+  const latest = unpackFuelest(latestJson);
+  rawRowsLatest = latest.rows;
+  stationsLatest = latest.stations;
+
+  prevPriceByKey = new Map();
+  if (prevJson) {
+    const prev = unpackFuelest(prevJson).rows;
+    prevPriceByKey = buildPrevPriceMap(prev);
+  }
+
+  stationRows = buildStationRowsFromLatest(rawRowsLatest);
+
+  const updatedAt = metaJson?.updated_at_utc
+    ? new Date(metaJson.updated_at_utc).toLocaleString("ru-RU")
+    : "";
+
+  buildFilters();
+  renderAll(updatedAt);
+
+  return updatedAt;
 }
 
 (async function main() {
-  bindUI();
+  const metaUpdatedAtRef = { value: "" };
+  bindUI(metaUpdatedAtRef);
+
   try {
-    await fetchData();
+    metaUpdatedAtRef.value = await fetchData();
   } catch (e) {
     showErr(e);
   }
