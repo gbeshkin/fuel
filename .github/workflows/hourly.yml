@@ -28,6 +28,6 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add data/latest.json data/prev.json data/meta.json
+          git add data/
           git commit -m "data: hourly update" || echo "No changes"
           git push
