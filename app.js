@@ -216,7 +216,7 @@ async function fetchData() {
   els.meta.textContent =
     `Записей: ${allRows.length}. Станций: ${stationIndex.length}. ` +
     `Последнее обновление (UTC): ${updatedAt}. ` +
-    (hasPrev ? "Индикатор активен (сравнение с прошлым обновлением)." : "Индикатор появится после второго обновления (когда появится prev.json).");
+    (hasPrev ? "Индикатор активен ");
 
   render();
 }
