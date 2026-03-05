@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>цены на топливо</title>
+
+  <link rel="stylesheet" href="style.css" />
+
+  <!-- Leaflet -->
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin=""
+  />
+</head>
+<body>
+  <header class="wrap">
+    <h1>FuelEst — цены на топливо</h1>
+    <div class="sub">
+      Данные обновляются GitHub Actions каждый час. Индикатор показывает изменение цены между двумя последними обновлениями.
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="controls">
+      <label>
+        Город:
+        <select id="citySelect">
+          <option value="__ALL__">Все</option>
+        </select>
+      </label>
+
+      <label>
+        Топливо:
+        <select id="fuelSelect">
+          <option value="__ALL__">Все</option>
+        </select>
+      </label>
+
+      <label class="search">
+        Поиск (станция/адрес):
+        <input id="q" type="search" placeholder="например: Neste, Sütiste, Tartu..." />
+      </label>
+
+      <button id="refreshBtn" type="button">Обновить</button>
+
+      <div class="meta" id="meta"></div>
+    </section>
+
+    <section class="grid">
+      <div class="card">
+        <h2>Карта</h2>
+        <div id="map"></div>
+      </div>
+
+      <div class="card">
+        <h2>Таблица</h2>
+        <div class="tableWrap">
+          <table id="tbl">
+            <thead>
+              <tr>
+                <th>Компания</th>
+                <th>Станция</th>
+                <th>Адрес</th>
+                <th>Город</th>
+                <th>Топливо</th>
+                <th>Цена</th>
+                <th>Время</th>
+                <th>Индикатор</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Leaflet -->
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin=""
+  ></script>
+
+  <script src="app.js"></script>
+</body>
+</html>
