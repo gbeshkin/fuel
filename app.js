@@ -215,8 +215,8 @@ async function fetchData() {
   const hasPrev = prevPriceByKey.size > 0;
   els.meta.textContent =
     `Записей: ${allRows.length}. Станций: ${stationIndex.length}. ` +
-    `Последнее обновление (UTC): ${updatedAt}. ` +
-    (hasPrev ? "Индикатор активен ");
+    `Последнее обновление (UTC): ${updatedAt}. `;
+  
 
   render();
 }
