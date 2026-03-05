@@ -1,7 +1,4 @@
-// Сайт читает снапшоты, которые кладёт GitHub Actions:
-// data/latest.json — текущие данные
-// data/prev.json   — данные с прошлого обновления
-// data/meta.json   — метаданные (время обновления)
+
 const LATEST_URL = "./data/latest.json";
 const PREV_URL   = "./data/prev.json";
 const META_URL   = "./data/meta.json";
@@ -18,8 +15,8 @@ const els = {
 let map;
 let markersLayer;
 
-let allRows = [];      // плоский список fuel-записей
-let stationIndex = []; // список станций (уникальные stationId)
+let allRows = [];      
+let stationIndex = [];
 let prevPriceByKey = new Map(); // key -> price
 
 function safeStr(v) {
@@ -36,7 +33,6 @@ function escapeHtml(s) {
 }
 
 function toCityFromAddress(address) {
-  // В данных часто формат: "... , Tallinn"
   const s = safeStr(address);
   const parts = s.split(",").map(x => x.trim()).filter(Boolean);
   if (parts.length >= 2) return parts[parts.length - 1];
@@ -61,7 +57,6 @@ function ensureMap() {
 }
 
 function priceKey(row) {
-  // stationId + fuelTypeId = стабильный ключ для сравнения
   return `${row.stationId}::${row.fuelTypeId}`;
 }
 
@@ -125,7 +120,6 @@ function buildFilters(rows) {
     fuelList.map(f => `<option value="${escapeHtml(f)}">${escapeHtml(f)}</option>`).join("");
 }
 
-// распаковка FuelEst JSON -> плоские rows + уникальные станции
 function unpackFuelest(json) {
   const priceInfo = json?.data?.priceInfo ?? [];
   const rows = [];
@@ -263,10 +257,8 @@ function renderMap(filteredRows) {
   ensureMap();
   markersLayer.clearLayers();
 
-  // какие станции попали в фильтр
   const stationIds = new Set(filteredRows.map(r => r.stationId));
 
-  // сгруппируем строки по станции для popup
   const byStation = new Map();
   for (const r of filteredRows) {
     const arr = byStation.get(r.stationId) ?? [];
