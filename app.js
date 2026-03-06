@@ -3,7 +3,8 @@ const PREV_URL = "./data/prev.json";
 const META_URL = "./data/meta.json";
 
 const els = {
-  city: document.getElementById("citySelect"),
+  cityInput: document.getElementById("cityInput"),
+  cityList: document.getElementById("cityList"),
   company: document.getElementById("companySelect"),
   sort: document.getElementById("sortSelect"),
   q: document.getElementById("q"),
