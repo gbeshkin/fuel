@@ -270,7 +270,7 @@ function buildFilters() {
       companies.map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join("");
     els.company.value = companies.includes(current) ? current : "__ALL__";
   }
-}
+
 
 function getFilterState() {
   return {
