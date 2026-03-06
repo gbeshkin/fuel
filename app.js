@@ -5,18 +5,13 @@ const META_URL = "./data/meta.json";
 const els = {
   cityInput: document.getElementById("cityInput"),
   cityList: document.getElementById("cityList"),
-  company: document.getElementById("companySelect"),
   sort: document.getElementById("sortSelect"),
   q: document.getElementById("q"),
   refresh: document.getElementById("refreshBtn"),
   meta: document.getElementById("meta"),
-
   badgeUpdated: document.getElementById("badgeUpdated"),
   badgeCity: document.getElementById("badgeCity"),
-
-  tbody:
-    document.querySelector("#tblStations tbody") ||
-    document.querySelector("#tbl tbody"),
+  tbody: document.querySelector("#tblStations tbody")
 };
 
 let map;
@@ -274,18 +269,16 @@ function buildFilters() {
 
 function getFilterState() {
   return {
-    city: els.cityInput ? els.cityInput.value : "Все",
-    company: els.company ? els.company.value : "__ALL__",
+    city: els.cityInput ? els.cityInput.value.trim() : "Все",
     sort: els.sort ? els.sort.value : "station",
     q: els.q ? els.q.value.trim().toLowerCase() : "",
   };
 }
 
 function passesFilters(st) {
-  const { city, company, q } = getFilterState();
+  const { city, q } = getFilterState();
 
   if (city && city !== "Все" && st.city !== city) return false;
-  if (company !== "__ALL__" && safeStr(st.companyId) !== company) return false;
 
   if (q) {
     const hay = `${safeStr(st.stationName)} ${safeStr(st.address)}`.toLowerCase();
@@ -326,13 +319,14 @@ function sortStations(list) {
   return sorted;
 }
 
-function renderBadges(metaUpdatedAt) {
-  if (els.badgeUpdated) {
-    els.badgeUpdated.textContent = metaUpdatedAt ? `Обновлено: ${metaUpdatedAt}` : "—";
+function renderBadges() {
+  if (els.badgeUpdated && window.__updatedAtText) {
+    els.badgeUpdated.textContent = `Обновлено: ${window.__updatedAtText}`;
   }
+
   if (els.badgeCity) {
-    const { city } = getFilterState();
-    els.badgeCity.textContent = city === "__ALL__" ? "Все города" : city;
+    const city = els.cityInput?.value?.trim();
+    els.badgeCity.textContent = city && city !== "Все" ? city : "Все города";
   }
 }
 
@@ -472,38 +466,28 @@ function on(el, event, handler) {
   if (el) el.addEventListener(event, handler);
 }
 
-function bindUI(metaUpdatedAtRef) {
-  on(els.city, "change", () => {
-    renderBadges(metaUpdatedAtRef.value);
-    renderMetaLine(metaUpdatedAtRef.value);
-    renderTable();
-    renderMap();
+function rerenderAll() {
+  renderBadges();
+  renderMetaLine();
+  renderTable();
+  renderMap();
+}
+
+function bindUI() {
+  on(els.cityInput, "input", () => {
+    window.clearTimeout(window.__cityT);
+    window.__cityT = window.setTimeout(rerenderAll, 100);
   });
 
-  on(els.company, "change", () => {
-    renderBadges(metaUpdatedAtRef.value);
-    renderMetaLine(metaUpdatedAtRef.value);
-    renderTable();
-    renderMap();
-  });
-
-  on(els.sort, "change", () => {
-    renderTable();
-  });
+  on(els.cityInput, "change", rerenderAll);
+  on(els.sort, "change", rerenderAll);
 
   on(els.q, "input", () => {
-    window.clearTimeout(window.__t);
-    window.__t = window.setTimeout(() => {
-      renderBadges(metaUpdatedAtRef.value);
-      renderMetaLine(metaUpdatedAtRef.value);
-      renderTable();
-      renderMap();
-    }, 120);
+    window.clearTimeout(window.__qT);
+    window.__qT = window.setTimeout(rerenderAll, 120);
   });
 
-  on(els.refresh, "click", () => {
-    fetchData().catch(showErr);
-  });
+  on(els.refresh, "click", () => fetchData().catch(showErr));
 }
 
 function showErr(e) {
