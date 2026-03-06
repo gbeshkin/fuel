@@ -34,9 +34,10 @@
     <section class="controls">
       <label>
         Город:
-        <select id="citySelect">
-          <option value="__ALL__">Все</option>
-        </select>
+        <input id="cityInput" list="cityList" placeholder="Введите город..." />
+        <datalist id="cityList">
+          <option value="Все"></option>
+        </datalist>
       </label>
 
       <label class="search">
