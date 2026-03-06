@@ -39,8 +39,6 @@
         </select>
       </label>
 
-    
-
       <label class="search">
         Поиск (станция/адрес):
         <input id="q" type="search" placeholder="например: Neste, Circle K, Tartu mnt..." />
@@ -62,7 +60,7 @@
       <div class="meta" id="meta"></div>
     </section>
 
-    <section class="grid">
+    <section class="stack">
       <div class="card">
         <div class="cardTitleRow">
           <h2>Карта</h2>
@@ -74,7 +72,7 @@
       <div class="card">
         <div class="cardTitleRow">
           <h2>Таблица по станциям</h2>
-          <div class="hint">Показаны 95 / 98 / Diesel/LPG/CNG</div>
+          <div class="hint">Показаны 95 / 98 / Diesel / LPG / CNG</div>
         </div>
 
         <div class="tableWrap">
@@ -115,12 +113,17 @@
   ></script>
 
   <script src="app.js"></script>
-<!-- Privacy-friendly analytics by Plausible -->
-<script async src="https://plausible.io/js/pa-QqG83e4jDk3z4cXfoYKQM.js"></script>
-<script>
-  window.plausible=window.plausible||function(){(plausible.q=plausible.q||[]).push(arguments)},plausible.init=plausible.init||function(i){plausible.o=i||{}};
-  plausible.init()
-</script>
 
+  <!-- Privacy-friendly analytics by Plausible -->
+  <script async src="https://plausible.io/js/pa-QqG83e4jDk3z4cXfoYKQM.js"></script>
+  <script>
+    window.plausible = window.plausible || function () {
+      (plausible.q = plausible.q || []).push(arguments);
+    };
+    plausible.init = plausible.init || function (i) {
+      plausible.o = i || {};
+    };
+    plausible.init();
+  </script>
 </body>
 </html>
