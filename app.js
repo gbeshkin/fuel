@@ -250,13 +250,16 @@ function uniqSorted(arr) {
 }
 
 function buildFilters() {
-  const cities = uniqSorted(stationRows.map((s) => s.city));
-  if (els.city) {
-    const current = els.city.value || "__ALL__";
-    els.city.innerHTML =
-      `<option value="__ALL__">Все</option>` +
-      cities.map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join("");
-    els.city.value = cities.includes(current) ? current : "__ALL__";
+  const cities = Array.from(new Set(stationRows.map(s => s.city)))
+    .filter(Boolean)
+    .sort();
+  if (els.cityList) {
+    els.cityList.innerHTML =
+      `<option value="Все"></option>` +
+      cities.map(c =>
+        `<option value="${escapeHtml(c)}"></option>`
+      ).join("");
+    }
   }
 
   const companies = uniqSorted(stationRows.map((s) => safeStr(s.companyId)));
@@ -271,7 +274,7 @@ function buildFilters() {
 
 function getFilterState() {
   return {
-    city: els.city ? els.city.value : "__ALL__",
+    city: els.cityInput ? els.cityInput.value : "Все",
     company: els.company ? els.company.value : "__ALL__",
     sort: els.sort ? els.sort.value : "station",
     q: els.q ? els.q.value.trim().toLowerCase() : "",
@@ -281,7 +284,7 @@ function getFilterState() {
 function passesFilters(st) {
   const { city, company, q } = getFilterState();
 
-  if (city !== "__ALL__" && st.city !== city) return false;
+  if (city && city !== "Все" && st.city !== city) return false;
   if (company !== "__ALL__" && safeStr(st.companyId) !== company) return false;
 
   if (q) {
