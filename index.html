@@ -3,11 +3,10 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Цены на топливо</title>
+  <title>Fuel prices</title>
 
   <link rel="stylesheet" href="style.css" />
 
-  <!-- Leaflet -->
   <link
     rel="stylesheet"
     href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
@@ -19,13 +18,13 @@
   <header class="wrap">
     <div class="headerRow">
       <div>
-        <h1>Цены на топливо</h1>
-        <div class="sub">Данные обновляются каждый час.</div>
+        <h1>Fuel prices</h1>
+        <div class="sub">Data is updated every hour</div>
       </div>
 
       <div class="badges">
         <span class="badge" id="badgeUpdated">—</span>
-        <span class="badge" id="badgeCity">Все города</span>
+        <span class="badge" id="badgeCity">All city</span>
       </div>
     </div>
   </header>
@@ -33,28 +32,28 @@
   <main class="wrap">
     <section class="controls">
       <label>
-        Город:
-        <input id="cityInput" list="cityList" placeholder="Введите город..." />
+        City:
+        <input id="cityInput" list="cityList" placeholder="Choose city..." />
         <datalist id="cityList">
-          <option value="Все"></option>
+          <option value="All"></option>
         </datalist>
       </label>
 
       <label class="search">
-        Поиск (станция/адрес):
-        <input id="q" type="search" placeholder="например: Neste, Circle K, Tartu mnt..." />
+        Search (station/address):
+        <input id="q" type="search" placeholder="example: Neste, Circle K, Tartu mnt..." />
       </label>
 
       <label>
-        Сортировка:
+        Sort:
         <select id="sortSelect">
-          <option value="station">Станция (A→Z)</option>
-          <option value="p95">Цена 95</option>
-          <option value="p98">Цена 98</option>
-          <option value="diesel">Цена Diesel</option>
+          <option value="station">Gas station (A→Z)</option>
+          <option value="p95">95</option>
+          <option value="p98">98</option>
+          <option value="diesel">Diesel</option>
           <option value="lpg">LPG</option>
           <option value="cng">CNG</option>
-          <option value="delta">Δ (изменение)</option>
+          <option value="delta">Δ (delta)</option>
         </select>
       </label>
 
@@ -64,24 +63,23 @@
     <section class="stack">
       <div class="card">
         <div class="cardTitleRow">
-          <h2>Карта</h2>
-          <div class="hint">Клик по строке в таблице — фокус на станции</div>
+          <h2>Map</h2>
         </div>
         <div id="map"></div>
       </div>
 
       <div class="card">
         <div class="cardTitleRow">
-          <h2>Таблица по станциям</h2>
-          <div class="hint">Показаны 95 / 98 / Diesel / LPG / CNG</div>
+          <h2>Table by Gas stations/h2>
+          <div class="hint">95 / 98 / Diesel / LPG / CNG</div>
         </div>
 
         <div class="tableWrap">
           <table id="tblStations">
             <thead>
               <tr>
-                <th class="col-station">Станция</th>
-                <th class="col-city">Город</th>
+                <th class="col-station">Gas station</th>
+                <th class="col-city">City</th>
                 <th class="col-fuel">95</th>
                 <th class="col-fuel">98</th>
                 <th class="col-fuel">Diesel</th>
@@ -97,10 +95,10 @@
         </div>
 
         <div class="legend">
-          <span class="chip chipUp">↑ рост</span>
-          <span class="chip chipDown">↓ снижение</span>
-          <span class="chip chipFlat">→ без изменений</span>
-          <span class="chip chipNone">— нет данных</span>
+          <span class="chip chipUp">↑ price increase</span>
+          <span class="chip chipDown">↓ price reduction</span>
+          <span class="chip chipFlat">→ no changes</span>
+          <span class="chip chipNone">— no data</span>
         </div>
       </div>
     </section>
