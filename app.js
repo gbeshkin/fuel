@@ -336,9 +336,9 @@ function renderMetaLine(metaUpdatedAt) {
 
   if (els.meta) {
     els.meta.textContent =
-      `Станций (после фильтров): ${count}. ` +
-      (metaUpdatedAt ? `Последнее обновление (UTC): ${metaUpdatedAt}. ` : "") +
-      (hasPrev ? "Δ активно (сравнение с прошлым обновлением)." : "Δ появится после следующего обновления (когда появится prev.json).");
+      `Gas station (after filter): ${count}. ` +
+      (metaUpdatedAt ? `Last updated (UTC): ${metaUpdatedAt}. ` : "") +
+      (hasPrev ? "Δ active (compared to the previous update)." : "Δ will appear after the next update (when prev.json appears).");
   }
 }
 
@@ -386,7 +386,7 @@ function renderTable() {
 
   els.tbody.innerHTML =
     html ||
-    `<tr><td colspan="8" class="small" style="padding:14px;">Нет данных под выбранные фильтры</td></tr>`;
+    `<tr><td colspan="8" class="small" style="padding:14px;">There is no data for the selected filters.</td></tr>`;
 
   els.tbody.querySelectorAll("tr[data-station-id]").forEach((tr) => {
     tr.addEventListener("click", () => {
@@ -495,15 +495,15 @@ function showErr(e) {
   if (els.meta) {
     els.meta.textContent = `Ошибка: ${e?.message || e}`;
   }
-  if (els.badgeUpdated) els.badgeUpdated.textContent = "Ошибка";
+  if (els.badgeUpdated) els.badgeUpdated.textContent = "Error";
 }
 
 async function fetchData() {
-  if (els.meta) els.meta.textContent = "Загружаю данные…";
+  if (els.meta) els.meta.textContent = "Loading data…";
 
   const latestJson = await fetchJsonOrNull(LATEST_URL);
   if (!latestJson) {
-    throw new Error("Не удалось загрузить data/latest.json. Проверь, что GitHub Actions создал файл и он доступен в Pages.");
+    throw new Error("Failed to load data/latest.json. Please verify that GitHub Actions created the file and that it is accessible in Pages.");
   }
 
   const prevJson = await fetchJsonOrNull(PREV_URL);
