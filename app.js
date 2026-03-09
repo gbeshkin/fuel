@@ -326,7 +326,7 @@ function renderBadges() {
 
   if (els.badgeCity) {
     const city = els.cityInput?.value?.trim();
-    els.badgeCity.textContent = city && city !== "Все" ? city : "Все города";
+    els.badgeCity.textContent = city && city !== "Все" ? city : "All city";
   }
 }
 
