@@ -5,7 +5,7 @@ import sys
 from datetime import datetime, timezone
 from urllib.request import urlopen, Request
 
-API_URL = "https://fuelest.ee/Home/GetLatestPriceDataByStations?countryId=1"
+API_URL = "https://fuelest.ee/Home/GetLatestPriceData?countryId=1"
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 DATA_DIR = os.path.join(ROOT, "data")
@@ -15,10 +15,20 @@ META = os.path.join(DATA_DIR, "meta.json")
 
 
 def fetch_json(url: str) -> dict:
-  req = Request(url, headers={"User-Agent": "Mozilla/5.0"})
-  with urlopen(req, timeout=30) as r:
-    raw = r.read()
-  return json.loads(raw.decode("utf-8"))
+    from urllib.request import Request, urlopen
+    import json
+
+    headers = {
+        "User-Agent": "Mozilla/5.0",
+        "Accept": "application/json, text/plain, */*",
+        "Referer": "https://fuelest.ee/",
+        "Origin": "https://fuelest.ee",
+    }
+
+    req = Request(url, headers=headers)
+
+    with urlopen(req, timeout=30) as r:
+        return json.loads(r.read().decode("utf-8"))
 
 
 def main() -> int:
