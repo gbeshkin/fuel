@@ -7,6 +7,7 @@ from urllib.request import urlopen, Request
 
 API_URL = "https://fuelest.ee/Home/GetLatestPriceData?countryId=1"
 
+
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 DATA_DIR = os.path.join(ROOT, "data")
 LATEST = os.path.join(DATA_DIR, "latest.json")
