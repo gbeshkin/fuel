@@ -5,7 +5,7 @@ import sys
 from datetime import datetime, timezone
 from urllib.request import urlopen, Request
 
-API_URL = "https://fuelest.ee/Home/GetLatestPriceData?countryId=1"
+API_URL = "https://fuelest.ee/Home/GetLatestPriceDataByStations?countryId=1"
 
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
